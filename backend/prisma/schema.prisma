@@ -1,0 +1,217 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  firstName String?
+  lastName  String?
+  avatar    String?
+  
+  // Subscription and preferences
+  subscriptionType SubscriptionType @default(FREE)
+  targetAccent     AccentType       @default(AMERICAN)
+  currentLevel     Level            @default(BEGINNER)
+  
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  lastLoginAt DateTime?
+  
+  // Relations
+  sessions      PracticeSession[]
+  progress      Progress[]
+  assessments   Assessment[]
+  achievements  UserAchievement[]
+  
+  @@map("users")
+}
+
+model PracticeSession {
+  id          String   @id @default(cuid())
+  userId      String
+  type        SessionType
+  duration    Int      // in seconds
+  completed   Boolean  @default(false)
+  score       Float?   // overall session score
+  
+  // Session data
+  exerciseData Json     // flexible storage for different exercise types
+  feedback     Json     // AI feedback and suggestions
+  
+  // Timestamps
+  startedAt   DateTime @default(now())
+  completedAt DateTime?
+  
+  // Relations
+  user        User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  recordings  Recording[]
+  
+  @@map("practice_sessions")
+}
+
+model Recording {
+  id        String   @id @default(cuid())
+  sessionId String
+  fileName  String
+  fileUrl   String
+  duration  Float    // in seconds
+  
+  // Analysis results
+  transcript        String?
+  pronunciationScore Float?
+  fluencyScore      Float?
+  accuracyScore     Float?
+  
+  // Detailed analysis
+  phonemeAnalysis   Json?  // phoneme-level breakdown
+  wordAnalysis      Json?  // word-level scores
+  
+  // Timestamps
+  createdAt DateTime @default(now())
+  
+  // Relations
+  session   PracticeSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  
+  @@map("recordings")
+}
+
+model Progress {
+  id        String   @id @default(cuid())
+  userId    String
+  date      DateTime @default(now())
+  
+  // Scores
+  overallScore       Float
+  pronunciationScore Float
+  fluencyScore       Float
+  accuracyScore      Float
+  
+  // Practice stats
+  practiceMinutes    Int      @default(0)
+  sessionsCompleted  Int      @default(0)
+  wordsCorrect       Int      @default(0)
+  wordsTotal         Int      @default(0)
+  
+  // Problem areas (JSON array of phonemes/words)
+  problemAreas       Json?
+  improvements       Json?
+  
+  // Relations
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("progress")
+}
+
+model Assessment {
+  id          String   @id @default(cuid())
+  userId      String
+  type        AssessmentType
+  level       Level
+  
+  // Results
+  overallScore       Float
+  pronunciationScore Float
+  fluencyScore       Float
+  accuracyScore      Float
+  
+  // Detailed results
+  strengths          Json    // areas of strength
+  weaknesses         Json    // areas needing improvement
+  recommendations    Json    // personalized recommendations
+  
+  // Timestamps
+  createdAt DateTime @default(now())
+  
+  // Relations
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("assessments")
+}
+
+model Achievement {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String
+  icon        String
+  category    AchievementCategory
+  
+  // Requirements
+  requirement Json     // flexible criteria for unlocking
+  points      Int      @default(0)
+  
+  // Relations
+  users       UserAchievement[]
+  
+  @@map("achievements")
+}
+
+model UserAchievement {
+  id            String      @id @default(cuid())
+  userId        String
+  achievementId String
+  unlockedAt    DateTime    @default(now())
+  
+  // Relations
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  achievement   Achievement @relation(fields: [achievementId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, achievementId])
+  @@map("user_achievements")
+}
+
+// Enums
+enum SubscriptionType {
+  FREE
+  PREMIUM
+  ENTERPRISE
+}
+
+enum AccentType {
+  AMERICAN
+  BRITISH
+  AUSTRALIAN
+  CANADIAN
+}
+
+enum Level {
+  BEGINNER
+  INTERMEDIATE
+  ADVANCED
+  EXPERT
+}
+
+enum SessionType {
+  PRONUNCIATION
+  FLUENCY
+  CONVERSATION
+  ASSESSMENT
+  WORDS
+  SENTENCES
+  MINIMAL_PAIRS
+}
+
+enum AssessmentType {
+  INITIAL
+  PROGRESS
+  FINAL
+  PLACEMENT
+}
+
+enum AchievementCategory {
+  PRACTICE
+  IMPROVEMENT
+  STREAK
+  MILESTONE
+  SPECIAL
+}
